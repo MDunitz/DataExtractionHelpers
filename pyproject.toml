@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "labdata"
+version = "0.1.0"
+description = "Shared Google-Sheets extraction + astropy-units round-trip for the Orphan lab (public, code-only, config-free)."
+requires-python = ">=3.9"
+dependencies = [
+    "pandas",
+    "astropy",
+    "openpyxl",   # read_workbook_tabs (xlsx export, multi-tab)
+]
+
+[project.optional-dependencies]
+# Only needed for the authenticated (private-sheet) path: extract*(auth=...).
+auth = ["gspread", "google-auth"]
+
+[tool.setuptools.packages.find]
+include = ["labdata*"]
