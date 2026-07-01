@@ -1,7 +1,7 @@
 # labdata
 
 Shared, **config-free** Google-Sheets extraction + astropy-units round-trip for
-the Orphan lab. Code only — no spreadsheet IDs, no credentials in the package
+the reproducible science work. Code only — no spreadsheet IDs, no credentials in the package
 (those live in the consumer). Implements the design in
 the design in claude_notes #340 / microbialCommunities #162.
 
