@@ -46,15 +46,67 @@ extract("pressure_data", auth=True)            # Application Default Credentials
 extract("pressure_data", auth="/path/key.json")  # specific service-account key
 ```
 
-`auth=True` uses `google.auth.default()`, which reads
-`GOOGLE_APPLICATION_CREDENTIALS`. Set it once in your shell profile so the same
-service account works across every repo:
+`auth=True` uses `google.auth.default()` (Application Default Credentials),
+which resolve to **either** a service-account key file (via
+`GOOGLE_APPLICATION_CREDENTIALS`) **or** user credentials from
+`gcloud auth application-default login`. Pick one path below.
+
+### First-time GCP setup
+
+Both paths first need the Sheets API enabled in a project you can use (labdata
+opens sheets by key via the Sheets API; the Drive API is not required):
 
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/keys/orphan-sheets-ro.json"
+gcloud config set project <PROJECT_ID>
+gcloud services enable sheets.googleapis.com
 ```
 
-Share the target sheet with the service-account email (Viewer). Read-only scope.
+#### Option A — user credentials, keyless (simplest for a personal laptop)
+
+No key file to store or leak. Authenticates as *you*, so the sheet only needs to
+be shared with your own Google account (usually already the case).
+
+```bash
+gcloud auth application-default login \
+  --scopes="https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets.readonly"
+gcloud auth application-default set-quota-project <PROJECT_ID>
+```
+
+- The `spreadsheets.readonly` scope **must** be in the login command. User
+  credentials cannot self-expand scopes at runtime, and labdata requests exactly
+  that scope; a login without it fails the first time you call `auth=True`.
+- The `set-quota-project` line is required — user credentials calling the Sheets
+  API need a quota project, or calls fail with a quota-project error.
+- **Do not** set `GOOGLE_APPLICATION_CREDENTIALS` for this path; if it is set,
+  the key file takes precedence over your gcloud login.
+- If the browser flow returns `Access blocked: Authorization Error`, your org
+  disallows the default gcloud client for non-Cloud scopes — use Option B, or
+  supply your own OAuth client id with `--client-id-file`.
+
+#### Option B — service-account key file (headless / shared machines)
+
+1. Create a service account (`IAM & Admin → Service Accounts → Create`). No
+   project roles are needed — sheet access comes from *sharing the sheet*, not
+   from IAM.
+2. Create a JSON key (`Keys → Add key → JSON`) and download it.
+3. Store it outside any repo and lock it down, then point ADC at it:
+   ```bash
+   mkdir -p ~/.config/gcloud/keys
+   mv ~/Downloads/<key>.json ~/.config/gcloud/keys/orphan-sheets-ro.json
+   chmod 600 ~/.config/gcloud/keys/orphan-sheets-ro.json
+   export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/keys/orphan-sheets-ro.json"
+   ```
+   Put the `export` in your shell profile so the same key works across every repo.
+4. Share the target sheet with the service-account email
+   (`...@....iam.gserviceaccount.com`) as **Viewer**.
+
+> **Org-policy gotcha:** many institutional GCP orgs enforce
+> `iam.disableServiceAccountKeyCreation`, which blocks step 2 entirely. If key
+> download is disabled, use Option A, or request a policy exception / use a
+> project outside the org.
+
+Either way the credential is read-only (`spreadsheets.readonly`); never commit a
+key file.
 
 ## Cache directory
 
